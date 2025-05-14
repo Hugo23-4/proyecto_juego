@@ -46,6 +46,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import com.jorge_hugo_javier.Observer.Observer;
 import com.jorge_hugo_javier.Model.Enemigo;
+import com.jorge_hugo_javier.Model.JuegoCharacter;
 
 /**
  * Controlador principal del juego que gestiona la lógica de combate,
@@ -54,7 +55,6 @@ import com.jorge_hugo_javier.Model.Enemigo;
  * vida,
  * y botones, para representar visualmente el estado del juego.
  */
-
 public class ControladorDeJuego implements Observer {
     /** Barra de progreso que representa la vida del jugador. */
     @FXML
@@ -121,7 +121,7 @@ public class ControladorDeJuego implements Observer {
     private Button btnNivel2;
 
     /**
-     * 
+     *
      * @param event Evento de acción asociado al botón.
      */
     @FXML
@@ -211,7 +211,7 @@ public class ControladorDeJuego implements Observer {
     }
 
     /**
-     * 
+     *
      * @param actor Personaje cuyo turno acaba de terminar.
      */
     private void endTurn(JuegoCharacter actor) {
@@ -223,7 +223,7 @@ public class ControladorDeJuego implements Observer {
 
     /**
      * Establece el jugador del juego.
-     * 
+     *
      * @param jugador Objeto de tipo Jugador.
      */
     public void setJugador(Jugador jugador) {
@@ -235,7 +235,7 @@ public class ControladorDeJuego implements Observer {
 
     /**
      * Establece el mapa y actualiza vista, límites y enemigos observados.
-     * 
+     *
      * @param mapa Mapa del juego.
      */
     public void setMapa(JuegoMap mapa) {
@@ -256,7 +256,7 @@ public class ControladorDeJuego implements Observer {
     /**
      * Maneja el evento de teclado para mover al jugador o atacar.
      * W/A/S/D: direcciones.
-     * 
+     *
      * @param evento Evento de tecla presionada.
      */
     @FXML
@@ -284,7 +284,7 @@ public class ControladorDeJuego implements Observer {
                 dx = 1;
                 break;
             default:
-                return; // Ignorar otras teclas // Ignorar otras teclas
+                return; // Ignorar otras teclas
         }
 
         int newX = jugador.getX() + dx;
@@ -293,28 +293,35 @@ public class ControladorDeJuego implements Observer {
         Cell celdaDestino = mapa.getCell(newX, newY);
         JuegoCharacter objetivo = celdaDestino.getOccupant();
 
-        if (objetivo instanceof Enemigo && objetivo.isAlive()) {
-            // Si hay un enemigo vivo, atacamos
-            Enemigo enemigo = (Enemigo) objetivo;
-            int daño = jugador.getAttack();
-            enemigo.receiveDamage(daño);
-            System.out.println("Atacaste a " + enemigo.getName() +
-                    ", vida restante: " + enemigo.getHealth());
-        }
-        // Solo si es una celda válida (suelo, dentro de límites y sin ocupante)
-        else if (mapa.esPosicionValida(newX, newY)) {
-            // Desocupa la celda actual del jugador
-            mapa.getCell(jugador.getX(), jugador.getY()).setOccupant(null);
-            // Mueve al jugador
-            jugador.setX(newX);
-            jugador.setY(newY);
-            // Ocupa la nueva celda
-            mapa.getCell(newX, newY).setOccupant(jugador);
-        }
+        // Si hay un enemigo vivo, atacamos…
+    if (objetivo instanceof Enemigo && objetivo.isAlive()) {
+        Enemigo enemigo = (Enemigo) objetivo;
+        int daño = jugador.getAttack();
+        enemigo.receiveDamage(daño);
+        System.out.println("Atacaste a " + enemigo.getName() +
+            ", vida restante: " + enemigo.getHealth());
+    }
+    // Solo si es una celda válida (suelo, trampa, dentro de límites y sin ocupante)
+    else if (mapa.esPosicionValida(newX, newY)) {
+        // 1) Desocupa la celda actual
+        mapa.getCell(jugador.getX(), jugador.getY()).setOccupant(null);
+        // 2) Mueve al jugador
+        jugador.setX(newX);
+        jugador.setY(newY);
+        // 3) Ocupa la nueva celda
+        celdaDestino.setOccupant(jugador);
 
-        actualizarVista();
-        isPlayerTurn = false;
-        endTurn(jugador);
+        // 4) Si es TRAP, infligir daño
+        if (celdaDestino.getType() == Cell.Type.TRAP) {
+            int damage = 10;
+            jugador.receiveDamage(damage);
+            System.out.println("¡Has pisado una trampa y recibido " + damage + " de daño!");
+        }
+    }  
+
+    actualizarVista();
+    isPlayerTurn = false;
+    endTurn(jugador);
 
         if (jugador.getHealth() <= 0) {
             mostrarDerrota("Has sido derrotado por " /* nombre enemigo */);
@@ -456,39 +463,51 @@ public class ControladorDeJuego implements Observer {
     /**
      * Mueve al enemigo a una celda adyacente aleatoria válida.
      */
+    
     private void moverAleatorio(Enemigo enemigo) {
         Random rand = new Random();
-        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-        List<int[]> opciones = new ArrayList<>();
+        int[][] dirs = {
+        { 1,  0},
+        {-1,  0},
+        { 0,  1},
+        { 0, -1}
+    };
+    
+    List<int[]> opciones = new ArrayList<>();
+    for (int[] dir : dirs) {
+        int dx = dir[0], dy = dir[1];
+        int xDestino = enemigo.getX() + dx;
+        int yDestino = enemigo.getY() + dy;
 
-        for (int[] dir : dirs) {
-            int nuevoX = enemigo.getX() + dir[0];
-            int nuevoY = enemigo.getY() + dir[1];
-            if (mapa.isInsideBounds(nuevoX, nuevoY)
-                    && mapa.getCell(nuevoX, nuevoY).isWalkable()
-                    && mapa.getCell(nuevoX, nuevoY).getOccupant() == null) {
-                opciones.add(dir);
-            }
-            int nx = enemigo.getX() + dir[0];
-            int ny = enemigo.getY() + dir[1];
-            // Usamos esPosicionValida para validar límites, suelo y ocupante
-            if (mapa.esPosicionValida(nx, ny)) {
-                opciones.add(dir);
-            }
+        if (mapa.esPosicionValida(xDestino, yDestino)) {
+            opciones.add(dir);
         }
+    }
+
+        int nuevoX = enemigo.getX();
+        int nuevoY = enemigo.getY();
 
         if (!opciones.isEmpty()) {
             int[] mov = opciones.get(rand.nextInt(opciones.size()));
-            int nuevoX = enemigo.getX() + mov[0];
-            int nuevoY = enemigo.getY() + mov[1];
+            nuevoX = enemigo.getX() + mov[0];
+            nuevoY = enemigo.getY() + mov[1];
+
             mapa.getCell(enemigo.getX(), enemigo.getY()).setOccupant(null);
             enemigo.setX(nuevoX);
             enemigo.setY(nuevoY);
             mapa.getCell(nuevoX, nuevoY).setOccupant(enemigo);
+
+            if (mapa.getCell(nuevoX, nuevoY).getType() == Cell.Type.TRAP) {
+                int damage = 10;
+                enemigo.receiveDamage(damage);
+                System.out.println(enemigo.getName() + " ha pisado una trampa y recibe " + damage + " de daño.");
+                if (enemigo.isDead()) {
+                    mapa.getCell(nuevoX, nuevoY).setOccupant(null);
+                }
+            }
         }
 
-        boolean todosMuertos = mapa.getEnemigos().stream().allMatch(Enemigo::isDead);
-        if (todosMuertos) {
+        if (mapa.getEnemigos().stream().allMatch(Enemigo::isDead)) {
             mostrarPantallaVictoria();
         }
     }

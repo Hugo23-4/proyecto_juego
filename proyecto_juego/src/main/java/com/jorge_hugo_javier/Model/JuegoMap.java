@@ -35,11 +35,20 @@ public class JuegoMap {
         for (int i = 0; i < rows; i++) {
             char[] chars = lines.get(i).toCharArray();
             for (int j = 0; j < cols; j++) {
-                Cell.Type type = (chars[j] == '#') ? Cell.Type.WALL : Cell.Type.FLOOR;
-                grid[i][j] = new Cell(type, chars[j]);
+                
+                Cell.Type type;
+                    char simbolo = chars[j];
+                if (simbolo == '#') {
+                    type = Cell.Type.WALL;
+                } else if (simbolo == 'T') {
+                    type = Cell.Type.TRAP;
+                } else {
+                    type = Cell.Type.FLOOR;
+                }
+                grid[i][j] = new Cell(type, simbolo);                
+                }
             }
         }
-    }
 
     /**
      * Añade un enemigo al mapa y coloca su ocupante en la celda correspondiente si
@@ -111,7 +120,7 @@ public class JuegoMap {
 
         for (int i = 0; i < filas; i++) {
             for (int j = 0; j < columnas; j++) {
-                resultado[i][j] = grid[i][j].getTipo(); // ← Este método debe existir en Cell
+                resultado[i][j] = grid[i][j].getSimboloOriginal();
             }
         }
 
@@ -130,8 +139,10 @@ public class JuegoMap {
     public boolean esPosicionValida(int x, int y) {
         if (!isInsideBounds(x, y))
             return false;
-
+        
         Cell celda = grid[y][x];
-        return celda.getType() == Cell.Type.FLOOR && celda.getOccupant() == null;
-    }
+            return (celda.getType() == Cell.Type.FLOOR
+            || celda.getType() == Cell.Type.TRAP)
+            && celda.getOccupant() == null;
+        }  
 }

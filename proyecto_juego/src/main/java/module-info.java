@@ -11,6 +11,7 @@ module com.jorge_hugo_javier {
     opens com.jorge_hugo_javier.Controlador to javafx.fxml;
     opens com.jorge_hugo_javier.Model to javafx.fxml;
 
+
     /*
      * En caso de añadir imagenes y css, necesitamos abrir el paquete de recursos
      * para que JavaFX pueda acceder a ellos. Esto es necesario para que JavaFX
